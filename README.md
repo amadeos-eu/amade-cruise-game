@@ -50,7 +50,7 @@ On the road are trucks, buses, campers, tractors and the small cars *Tenda*, *Bu
 
 ### The playlist
 
-The playlist takes files and folders; a folder plays everything in it that the game can read. Without any program of the system the game plays WAV, AIFF and AU; with the Java decoders that amadeOS installs also MP3, Ogg Vorbis and FLAC. Modules (MOD, XM, S3M, IT and more) play through `libopenmpt` when it is installed (`libopenmpt0` on Debian). The playlist plays in order or shuffled.
+The playlist takes files and folders; a folder plays everything in it that the game can read. The game needs no music player of the system: it plays MP3, Ogg Vorbis, FLAC, WAV and AIFF with Java decoders it brings along. Modules (MOD, XM, S3M, IT and more) play through `libopenmpt` when it is installed (`libopenmpt0` on Debian). The playlist plays in order or shuffled.
 
 The keys can be changed in `~/.config/amadeos/cruise/cruise.properties`, with the names Java gives them, several separated by spaces:
 
@@ -94,7 +94,7 @@ Plugged in before or while the game runs. *Help → About* shows how many are co
 ./gradlew benchmark     # how long a frame of each region takes
 ```
 
-Gamepads on Windows and the modules go through Java's foreign function interface and JNA, so the game starts with `--enable-native-access=ALL-UNNAMED` (set in `build.gradle` for `run`, the tests and the packages).
+Gamepads on Windows go through Java's foreign function interface (the modules through JNA), so the game starts with `--enable-native-access=ALL-UNNAMED` (set in `build.gradle` for `run`, the tests and the packages).
 
 All pictures are drawn with Java2D at run time and all sounds and tunes are made by the game itself; the icon is drawn by `tools/MakeIcon.java`. `./gradlew screenshots -Pshots=<folder>` draws the handbook's screenshots.
 

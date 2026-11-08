@@ -1,0 +1,20 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=amadeOS Cruise
+GenericName=Driving Game
+GenericName[de]=Fahrspiel
+GenericName[fr]=Jeu de conduite
+GenericName[es]=Juego de conducción
+GenericName[it]=Gioco di guida
+Comment=A calm drive through endless landscapes, with overtaking, dream worlds and races for one or two
+Comment[de]=Eine ruhige Fahrt durch endlose Landschaften, mit Überholen, Traumwelten und Rennen für einen oder zwei
+Comment[fr]=Une route tranquille à travers des paysages sans fin, avec dépassements, mondes de rêve et courses à un ou deux
+Comment[es]=Un viaje tranquilo por paisajes sin fin, con adelantamientos, mundos de sueño y carreras para uno o dos
+Comment[it]=Un viaggio tranquillo tra paesaggi infiniti, con sorpassi, mondi di sogno e gare per uno o due
+Icon=amade-cruise-game
+Exec=/usr/bin/amade-cruise-game
+Terminal=false
+Categories=Game;ArcadeGame;
+Keywords=driving;car;road;race;journey;relaxing;overtake;split screen;gamepad;game;
+StartupNotify=true

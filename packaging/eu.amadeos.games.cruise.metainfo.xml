@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata of amade-cruise-game, installed as /usr/share/metainfo/eu.amadeos.games.cruise.metainfo.xml.
+     amadeOS Software shows it for the installed package; a repository's appstream-generator reads it too. -->
+<component type="desktop-application">
+  <id>eu.amadeos.games.cruise</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>EUPL-1.2</project_license>
+
+  <name>amadeOS Cruise</name>
+
+  <summary>A calm drive through endless landscapes, with overtaking, dream worlds and races for one or two</summary>
+  <summary xml:lang="de">Eine ruhige Fahrt durch endlose Landschaften, mit Überholen, Traumwelten und Rennen für einen oder zwei</summary>
+  <summary xml:lang="fr">Une route tranquille à travers des paysages sans fin, avec dépassements, mondes de rêve et courses à un ou deux</summary>
+  <summary xml:lang="es">Un viaje tranquilo por paisajes sin fin, con adelantamientos, mundos de sueño y carreras para uno o dos</summary>
+  <summary xml:lang="it">Un viaggio tranquillo tra paesaggi infiniti, con sorpassi, mondi di sogno e gare per uno o due</summary>
+
+  <description>
+    <p>The driving game of the amadeOS desktop: a road that never ends, built as you drive, through larch valleys, sunflower plains, a coast with lighthouses, a red canyon with tunnels, a snowy pass, a city of lights and two dream worlds. Overtake the slower cars, choose the next region at each fork, and listen to the wind, the birds and the surf, or to your own music.</p>
+    <p xml:lang="de">Das Fahrspiel des amadeOS-Desktops: eine Straße ohne Ende, die beim Fahren entsteht, durch Lärchentäler, Sonnenblumenebenen, eine Küste mit Leuchttürmen, eine rote Schlucht mit Tunneln, einen verschneiten Pass, eine Stadt der Lichter und zwei Traumwelten. Überholen Sie die langsameren Autos, wählen Sie an jeder Gabelung die nächste Gegend und hören Sie Wind, Vögel und Brandung, oder Ihre eigene Musik.</p>
+    <p xml:lang="fr">Le jeu de conduite du bureau amadeOS : une route sans fin, construite pendant que vous roulez, à travers des vallées de mélèzes, des plaines de tournesols, une côte avec des phares, un canyon rouge avec des tunnels, un col enneigé, une ville de lumières et deux mondes de rêve. Doublez les voitures plus lentes, choisissez la région suivante à chaque bifurcation et écoutez le vent, les oiseaux et le ressac, ou votre propre musique.</p>
+    <p xml:lang="es">El juego de conducción del escritorio amadeOS: una carretera sin fin, construida mientras conduces, por valles de alerces, llanuras de girasoles, una costa con faros, un cañón rojo con túneles, un puerto nevado, una ciudad de luces y dos mundos de sueño. Adelanta a los coches más lentos, elige la siguiente región en cada bifurcación y escucha el viento, los pájaros y las olas, o tu propia música.</p>
+    <p xml:lang="it">Il gioco di guida del desktop amadeOS: una strada senza fine, costruita mentre guidi, tra valli di larici, pianure di girasoli, una costa con fari, un canyon rosso con gallerie, un passo innevato, una città di luci e due mondi di sogno. Sorpassa le auto più lente, scegli la regione successiva a ogni bivio e ascolta il vento, gli uccelli e le onde, o la tua musica.</p>
+    <ul>
+      <li>Eight regions, day and night, clouds, rain and fog</li>
+      <li xml:lang="de">Acht Gegenden, Tag und Nacht, Wolken, Regen und Nebel</li>
+      <li xml:lang="fr">Huit régions, jour et nuit, nuages, pluie et brouillard</li>
+      <li xml:lang="es">Ocho regiones, día y noche, nubes, lluvia y niebla</li>
+      <li xml:lang="it">Otto regioni, giorno e notte, nuvole, pioggia e nebbia</li>
+      <li>Deer, birds, cows, balloons, trains and boats beside the road</li>
+      <li xml:lang="de">Rehe, Vögel, Kühe, Ballons, Züge und Boote am Straßenrand</li>
+      <li xml:lang="fr">Cerfs, oiseaux, vaches, montgolfières, trains et bateaux au bord de la route</li>
+      <li xml:lang="es">Ciervos, pájaros, vacas, globos, trenes y barcos junto a la carretera</li>
+      <li xml:lang="it">Cervi, uccelli, mucche, mongolfiere, treni e barche lungo la strada</li>
+      <li>Three cars: an open roadster, a sports coupé and a camper van, in eight colours</li>
+      <li xml:lang="de">Drei Autos: ein offener Roadster, ein Sportcoupé und ein Wohnmobil, in acht Farben</li>
+      <li xml:lang="fr">Trois voitures : un roadster décapotable, un coupé sport et un camping-car, en huit couleurs</li>
+      <li xml:lang="es">Tres coches: un roadster descapotable, un cupé deportivo y una autocaravana, en ocho colores</li>
+      <li xml:lang="it">Tre auto: una roadster scoperta, una coupé sportiva e un camper, in otto colori</li>
+      <li>Races against the computer, or two players on one keyboard with a split screen</li>
+      <li xml:lang="de">Rennen gegen den Computer, oder zwei Spieler an einer Tastatur mit geteiltem Bildschirm</li>
+      <li xml:lang="fr">Courses contre l'ordinateur, ou deux joueurs sur un clavier avec écran partagé</li>
+      <li xml:lang="es">Carreras contra el ordenador, o dos jugadores en un teclado con pantalla dividida</li>
+      <li xml:lang="it">Gare contro il computer, o due giocatori su una tastiera con schermo diviso</li>
+      <li>Its own music, or your playlist of MP3, Ogg, FLAC, WAV and tracker modules; Ctrl+R mutes the music</li>
+      <li xml:lang="de">Eigene Musik, oder Ihre Playlist aus MP3, Ogg, FLAC, WAV und Tracker-Modulen; Strg+R schaltet die Musik stumm</li>
+      <li xml:lang="fr">Sa propre musique, ou votre liste de MP3, Ogg, FLAC, WAV et modules tracker ; Ctrl+R coupe la musique</li>
+      <li xml:lang="es">Su propia música, o tu lista de MP3, Ogg, FLAC, WAV y módulos tracker; Ctrl+R silencia la música</li>
+      <li xml:lang="it">La sua musica, o la tua playlist di MP3, Ogg, FLAC, WAV e moduli tracker; Ctrl+R silenzia la musica</li>
+      <li>A journal of the regions found, and photos of the road</li>
+      <li xml:lang="de">Ein Tagebuch der entdeckten Gegenden, und Fotos von der Straße</li>
+      <li xml:lang="fr">Un carnet des régions découvertes, et des photos de la route</li>
+      <li xml:lang="es">Un diario de las regiones descubiertas, y fotos de la carretera</li>
+      <li xml:lang="it">Un diario delle regioni scoperte, e foto della strada</li>
+      <li>Built on amade-game-engine; plays on other operating systems as well</li>
+      <li xml:lang="de">Gebaut auf amade-game-engine; läuft auch auf anderen Betriebssystemen</li>
+      <li xml:lang="fr">Construit sur amade-game-engine ; fonctionne aussi sur d'autres systèmes d'exploitation</li>
+      <li xml:lang="es">Hecho con amade-game-engine; funciona también en otros sistemas operativos</li>
+      <li xml:lang="it">Costruito su amade-game-engine; funziona anche su altri sistemi operativi</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">amade-cruise-game.desktop</launchable>
+  <icon type="stock">amade-cruise-game</icon>
+  <categories>
+    <category>Game</category>
+    <category>ArcadeGame</category>
+  </categories>
+
+  <url type="homepage">https://github.com/amadeos-eu/amade-cruise-game</url>
+  <url type="bugtracker">https://github.com/amadeos-eu/amade-cruise-game/issues</url>
+  <developer id="eu.amadeos">
+    <name>amadeOS Project</name>
+  </developer>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Larch Valley in the morning</caption>
+      <caption xml:lang="de">Das Lärchental am Morgen</caption>
+      <caption xml:lang="fr">La vallée des Mélèzes le matin</caption>
+      <caption xml:lang="es">El valle de los Alerces por la mañana</caption>
+      <caption xml:lang="it">La valle dei Larici al mattino</caption>
+      <image>https://raw.githubusercontent.com/amadeos-eu/amade-cruise-game/main/docs/screenshots/amade-cruise-game.png</image>
+    </screenshot>
+  </screenshots>
+
+  <provides>
+    <binary>amade-cruise-game</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+</component>

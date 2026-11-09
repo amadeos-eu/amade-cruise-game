@@ -111,7 +111,7 @@ public final class CruiseSettings {
     }
 
     public RenderMode renderMode() {
-        return RenderMode.ofId(get("graphics", "")).orElse(RenderMode.DIRECT);
+        return RenderMode.ofId(get("graphics", "")).orElse(RenderMode.AUTO);
     }
 
     public void setRenderMode(RenderMode mode) {

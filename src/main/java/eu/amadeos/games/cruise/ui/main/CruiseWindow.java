@@ -115,7 +115,7 @@ public final class CruiseWindow extends JFrame implements CruiseView {
         game.addSeparator();
         game.add(sound);
         game.add(focusing(item("menu.game.settings", "game-settings", () -> presenter.editSettings(), null)));
-        graphics = menus.graphics(RenderMode.DIRECT, mode -> {
+        graphics = menus.graphics(RenderMode.AUTO, mode -> {
             presenter.setRenderMode(mode);
             canvas.requestFocusInWindow();
         });

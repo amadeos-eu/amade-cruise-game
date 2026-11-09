@@ -70,7 +70,7 @@ class CruisePresenterTest {
     @Test
     void startShowsTheSettingsAndTheTitle() {
         presenter.start();
-        assertEquals(List.of("options true DIRECT", "mode DIRECT", "sound true", "title"), log);
+        assertEquals(List.of("options true AUTO", "mode AUTO", "sound true", "title"), log);
     }
 
     @Test

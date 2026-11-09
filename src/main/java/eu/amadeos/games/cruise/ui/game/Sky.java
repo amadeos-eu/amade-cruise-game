@@ -10,6 +10,7 @@ import java.awt.Composite;
 import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
 import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
@@ -31,7 +32,8 @@ import static eu.amadeos.games.cruise.ui.game.Paint.rgb;
  * and the aurora, moons and floating islands of a dream. The pictures of a region are made once, on a
  * thread of their own, in a logical width of {@link #WIDTH} that wraps around; they slide sideways while the
  * road bends, the far ones slower than the near ones (parallax). Night and the golden hour tint copies of
- * them, made once for each step of light.
+ * them, made once for each step of light and in the size they have on the screen, so that a frame only
+ * copies them: enlarging a picture as wide as the screen in every frame costs ten times as much.
  */
 // --8<-- [start:sky]
 final class Sky {
@@ -46,15 +48,26 @@ final class Sky {
     /** Rows of a gradient strip. */
     private static final int STRIP = 256;
     /** Gradient strips, the one used longest ago forgotten first. */
-    private final Map<Long, BufferedImage> strips = new java.util.LinkedHashMap<>(32, 0.75f, true) {
+    private final Map<Long, Strip> strips = new java.util.LinkedHashMap<>(32, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<Long, BufferedImage> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<Long, Strip> eldest) {
             return size() > 48;
         }
     };
 
+    /** A gradient from top to bottom: as a picture one pixel wide, and as its colours. */
+    private record Strip(BufferedImage image, Color[] colours) {
+    }
+
     /** Glows of the sun and the moon, by colour. */
     private final Map<Integer, BufferedImage> halos = new java.util.HashMap<>();
+    /** The glows in the size they have on the screen, the one used longest ago forgotten first. */
+    private final Map<Long, BufferedImage> sizedHalos = new java.util.LinkedHashMap<>(32, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Long, BufferedImage> eldest) {
+            return size() > 24;
+        }
+    };
 
     /** What the sky looks like now. */
     record Conditions(double hours, double sun, double light, double golden, double clouds, double fog) {
@@ -74,11 +87,28 @@ final class Sky {
 
     /** The pictures of the regions, the same for every sky of the program. */
     private static final Map<Region, Layers> layers = new ConcurrentHashMap<>();
-    /** Pixels the tinted copies may hold together, about 48 MB: the pictures are 2400 pixels wide. */
-    static final long TINT_BUDGET = 12_000_000;
-    /** Tinted copies, the one used longest ago first. */
-    private final java.util.LinkedHashMap<String, BufferedImage> tinted = new java.util.LinkedHashMap<>(64, 0.75f, true);
-    private long tintedPixels;
+    /** Pixels the copies may hold together, about 64 MB: enough for two regions fading into each other on a full screen. */
+    static final long COPY_BUDGET = 16_000_000;
+    /** A copy is at most this wide; a larger screen enlarges it while drawing. */
+    static final int WIDEST_COPY = 3840;
+
+    /** A layer's picture as the screen shows it: this many pixels, tinted for this step of light. */
+    private record Copy(BufferedImage layer, int width, int height, int light, int golden, int opacity) {
+        boolean plain() {
+            return light == 15 && golden == 0 && opacity == 10 && width == layer.getWidth() && height == layer.getHeight();
+        }
+    }
+
+    /** The copies, the one used longest ago first. Used by the drawing thread only. */
+    private final java.util.LinkedHashMap<Copy, BufferedImage> copies = new java.util.LinkedHashMap<>(64, 0.75f, true);
+    private long copyPixels;
+    /** Copies being made on the maker's thread, and those it has finished since the last frame. */
+    private final java.util.Set<Copy> pending = new java.util.HashSet<>();
+    private final java.util.Queue<Map.Entry<Copy, BufferedImage>> made = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    /** The copy each layer was last drawn with: something to show while the right one is being made. */
+    private final Map<BufferedImage, Copy> shown = new java.util.IdentityHashMap<>();
+    /** Makes every picture on the drawing thread: for tests and screenshots, which draw a single frame. */
+    private boolean patient;
     private final double[][] stars;
 
     Sky() {
@@ -93,8 +123,9 @@ final class Sky {
         MAKER.execute(() -> layers.computeIfAbsent(region, Sky::make));
     }
 
-    /** Makes the pictures now, on this thread: for tests and screenshots. */
+    /** Makes the pictures now, on this thread, and from now on their copies too: for tests and screenshots. */
     void prepareNow(Region region) {
+        patient = true;
         layers.computeIfAbsent(region, Sky::make);
     }
 
@@ -249,6 +280,10 @@ final class Sky {
      */
     void draw(Graphics2D g, double width, double height, double horizonY, Region region, Region previous, double blend,
               Conditions c, double heading, Color ground) {
+        for (Map.Entry<Copy, BufferedImage> m = made.poll(); m != null; m = made.poll()) {
+            pending.remove(m.getKey());
+            keep(m.getKey(), m.getValue());
+        }
         Object interpolation = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         if (previous != null && blend < 1) {
@@ -264,67 +299,115 @@ final class Sky {
                      Color ground, double alpha) {
         Composite before = g.getComposite();
         if (alpha < 1) g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) Math.max(0, alpha)));
+        // The same surface in its own pixels, without smoothing: for gradients, rectangles and plain copies.
+        AffineTransform t = g.getTransform();
+        Graphics2D flat = null;
+        if (t.getShearX() == 0 && t.getShearY() == 0 && t.getScaleX() > 0 && t.getScaleY() > 0) {
+            flat = (Graphics2D) g.create();
+            flat.setTransform(new AffineTransform());
+            flat.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        }
+        try {
+            one(g, flat, t, width, height, horizonY, r, c, heading, ground, alpha);
+        } finally {
+            if (flat != null) flat.dispose();
+            g.setComposite(before);
+        }
+    }
+
+    private void one(Graphics2D g, Graphics2D flat, AffineTransform t, double width, double height, double horizonY, Region r,
+                     Conditions c, double heading, Color ground, double alpha) {
         double k = horizonY / HORIZON;
         Color[] sky = colours(r, c);
-        drawStrip(g, strip(sky[0], sky[1], sky[2], 0.6f), 0, width, horizonY + 1);
+        gradient(g, flat, t, strip(sky[0], sky[1], sky[2], 0.6f), 0, width, horizonY + 1);
         double night = r.dream() ? 1 : Math.max(0, Math.min(1, (0.55 - c.light()) * 2.2)) * (1 - c.clouds());
         if (night > 0) stars(g, width, horizonY, heading * 0.05, night);
         Layers l = layers.get(r);
         if (l == null) prepare(r);
         double light = r.dream() ? 1 : Math.min(c.light(), r.maxLight() < 1 ? Math.max(c.light(), r.maxLight()) : 1);
-        if (l != null && l.dream != null) wrap(g, l.dream, heading * 0.08, 0, k, width, 1, 0);
-        if (!r.dream()) sun(g, width, horizonY, c, heading);
+        if (l != null && l.dream != null) wrap(g, flat, t, l.dream, heading * 0.08, 0, k, width, 1, 0, 1);
+        if (!r.dream()) sun(g, flat, t, width, horizonY, c, heading);
         if (l != null) {
             double cloudy = r.dream() ? 0.35 : 0.5 + 0.5 * c.clouds();
             if (alpha < 1) {
                 Composite cc = g.getComposite();
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) (cloudy * Math.max(0.01, alpha))));
-                wrap(g, l.clouds, heading * 0.15, 0, k, width, light, c.golden());
+                Composite thin = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) (cloudy * Math.max(0.01, alpha)));
+                g.setComposite(thin);
+                if (flat != null) flat.setComposite(thin);
+                wrap(g, flat, t, l.clouds, heading * 0.15, 0, k, width, light, c.golden(), 1);
                 g.setComposite(cc);
+                if (flat != null) flat.setComposite(cc);
             } else {
                 // Their thickness goes into the tinted copy: an extra alpha on every frame's blit is slow.
-                wrap(g, l.clouds, heading * 0.15, 0, k, width, light, c.golden(), cloudy);
+                wrap(g, flat, t, l.clouds, heading * 0.15, 0, k, width, light, c.golden(), cloudy);
             }
-            if (l.skyline != null) wrap(g, l.skyline, heading * 0.25, horizonY - l.skyline.getHeight() / (double) SCALE * k, k, width, 1, 0);
-            wrap(g, l.far, heading * 0.3, horizonY - l.far.getHeight() / (double) SCALE * k + 1, k, width, light, c.golden());
-            if (l.near != null) wrap(g, l.near, heading * 0.55, horizonY - l.near.getHeight() / (double) SCALE * k + 1, k, width, light, c.golden());
-            if (l.trees != null) wrap(g, l.trees, heading * 0.8, horizonY - l.trees.getHeight() / (double) SCALE * k + 1, k, width, light, c.golden());
+            if (l.skyline != null) wrap(g, flat, t, l.skyline, heading * 0.25, horizonY - l.skyline.getHeight() / (double) SCALE * k, k, width, 1, 0, 1);
+            wrap(g, flat, t, l.far, heading * 0.3, horizonY - l.far.getHeight() / (double) SCALE * k + 1, k, width, light, c.golden(), 1);
+            if (l.near != null) wrap(g, flat, t, l.near, heading * 0.55, horizonY - l.near.getHeight() / (double) SCALE * k + 1, k, width, light, c.golden(), 1);
+            if (l.trees != null) wrap(g, flat, t, l.trees, heading * 0.8, horizonY - l.trees.getHeight() / (double) SCALE * k + 1, k, width, light, c.golden(), 1);
         }
         if (c.fog() > 0) {
-            g.setColor(new Color(ground.getRed(), ground.getGreen(), ground.getBlue(), (int) (200 * c.fog())));
-            g.fill(new Rectangle2D.Double(0, 0, width, horizonY + 1));
+            Color mist = new Color(ground.getRed(), ground.getGreen(), ground.getBlue(), (int) (200 * c.fog()));
+            rect(g, flat, t, 0, 0, width, horizonY + 1, mist);
         }
         if (r.sea()) {
             Color sea = scale(rgb(56, 126, 190), light);
             Color top = scale(rgb(90, 150, 200), light);
-            drawStrip(g, strip(top, RoadLook.mix(top, sea, 0.5), sea, 0.5f), horizonY - 1, width, height - horizonY + 1);
+            gradient(g, flat, t, strip(top, RoadLook.mix(top, sea, 0.5), sea, 0.5f), horizonY - 1, width, height - horizonY + 1);
         } else {
-            g.setColor(ground);
-            g.fill(new Rectangle2D.Double(0, horizonY, width, height - horizonY));
+            rect(g, flat, t, 0, horizonY, width, height - horizonY, ground);
         }
-        g.setComposite(before);
+    }
+
+    /** A rectangle in one colour: of whole pixels where the surface allows it, which needs no smoothing. */
+    private static void rect(Graphics2D g, Graphics2D flat, AffineTransform t, double x, double y, double w, double h, Color c) {
+        if (flat == null) {
+            g.setColor(c);
+            g.fill(new Rectangle2D.Double(x, y, w, h));
+            return;
+        }
+        int left = (int) Math.floor(t.getTranslateX() + t.getScaleX() * x), right = (int) Math.ceil(t.getTranslateX() + t.getScaleX() * (x + w));
+        int top = (int) Math.floor(t.getTranslateY() + t.getScaleY() * y), bottom = (int) Math.ceil(t.getTranslateY() + t.getScaleY() * (y + h));
+        flat.setColor(c);
+        flat.fillRect(left, top, right - left, bottom - top);
     }
 
     /**
-     * A gradient as a picture one pixel wide, made once for each set of colours: drawn stretched, it costs
-     * a fraction of filling the sky with a gradient paint in every frame.
+     * A gradient's colours from top to bottom, made once for each set of colours.
      */
-    private BufferedImage strip(Color top, Color middle, Color bottom, float at) {
+    private Strip strip(Color top, Color middle, Color bottom, float at) {
         long key = ((long) top.getRGB() << 32) ^ ((long) middle.getRGB() << 16) ^ bottom.getRGB() ^ ((long) (at * 100) << 56);
-        BufferedImage s = strips.get(key);
+        Strip s = strips.get(key);
         if (s == null) {
-            s = new BufferedImage(1, STRIP, BufferedImage.TYPE_INT_RGB);
+            BufferedImage image = new BufferedImage(1, STRIP, BufferedImage.TYPE_INT_RGB);
+            Color[] colours = new Color[STRIP];
             for (int y = 0; y < STRIP; y++) {
                 double t = y / (double) (STRIP - 1);
-                Color c = t < at ? RoadLook.mix(top, middle, t / at) : RoadLook.mix(middle, bottom, (t - at) / (1 - at));
-                s.setRGB(0, y, c.getRGB());
+                colours[y] = t < at ? RoadLook.mix(top, middle, t / at) : RoadLook.mix(middle, bottom, (t - at) / (1 - at));
+                image.setRGB(0, y, colours[y].getRGB());
             }
+            s = new Strip(image, colours);
             strips.put(key, s);
         }
         return s;
     }
 
-    /** The glow around the sun or moon in one colour, made once and drawn stretched. */
+    /** The glow in the size it has on the screen: enlarged once, smoothly, and then only copied. */
+    private BufferedImage halo(Color glow, int size) {
+        long key = ((long) glow.getRGB() << 32) | size;
+        BufferedImage sized = sizedHalos.get(key);
+        if (sized == null) {
+            sized = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D h = sized.createGraphics();
+            h.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            h.drawImage(halo(glow), 0, 0, size, size, null);
+            h.dispose();
+            sizedHalos.put(key, sized);
+        }
+        return sized;
+    }
+
+    /** The glow around the sun or moon in one colour, made once. */
     private BufferedImage halo(Color glow) {
         return halos.computeIfAbsent(glow.getRGB(), k -> {
             int size = 96;
@@ -339,13 +422,38 @@ final class Sky {
         });
     }
 
-    private static void drawStrip(Graphics2D g, BufferedImage strip, double y, double width, double height) {
-        // The nearest pixel: smoothing a stretched strip costs more than the whole gradient saves.
-        Object before = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g.drawImage(strip, 0, (int) Math.floor(y), (int) Math.ceil(width), (int) Math.ceil(y + height) - (int) Math.floor(y), null);
-        if (before != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, before);
+    // --8<-- [start:gradient]
+    /**
+     * A gradient across the view, from {@code y} down by {@code height}: as rows of whole pixels in the
+     * strip's colours, each a plain rectangle. Filling the sky with a gradient paint in every frame costs
+     * many times as much, and so does stretching a picture over it.
+     */
+    private static void gradient(Graphics2D g, Graphics2D flat, AffineTransform t, Strip strip, double y, double width, double height) {
+        if (flat == null) {
+            Object before = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            g.drawImage(strip.image(), 0, (int) Math.floor(y), (int) Math.ceil(width), (int) Math.ceil(y + height) - (int) Math.floor(y), null);
+            if (before != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, before);
+            return;
+        }
+        int left = (int) Math.floor(t.getTranslateX()), right = (int) Math.ceil(t.getTranslateX() + t.getScaleX() * width);
+        int top = (int) Math.floor(t.getTranslateY() + t.getScaleY() * y);
+        int bottom = (int) Math.ceil(t.getTranslateY() + t.getScaleY() * (y + height));
+        int rows = bottom - top;
+        if (rows <= 0) return;
+        Color[] colours = strip.colours();
+        // Rows of the same colour in one piece: at most as many rectangles as the strip has colours.
+        int from = top, step = 0;
+        for (int row = top + 1; row <= bottom; row++) {
+            int next = row == bottom ? -1 : (int) ((long) (row - top) * STRIP / rows);
+            if (next == step) continue;
+            flat.setColor(colours[step]);
+            flat.fillRect(left, from, right - left, row - from);
+            from = row;
+            step = next;
+        }
     }
+    // --8<-- [end:gradient]
 
     private void stars(Graphics2D g, double width, double horizonY, double shift, double alpha) {
         for (double[] s : stars) {
@@ -360,7 +468,7 @@ final class Sky {
     }
 
     /** The sun by day, low and golden in the evening; the moon at night. */
-    private void sun(Graphics2D g, double width, double horizonY, Conditions c, double heading) {
+    private void sun(Graphics2D g, Graphics2D flat, AffineTransform t, double width, double horizonY, Conditions c, double heading) {
         boolean day = c.sun() > -0.12;
         double hours = day ? c.hours() : (c.hours() + 12) % 24;
         double elevation = day ? c.sun() : -c.sun();
@@ -376,57 +484,104 @@ final class Sky {
         Composite before = g.getComposite();
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) haze));
         double gr = r * (day ? 9 : 5);
-        g.drawImage(halo(glow), (int) Math.round(x - gr), (int) Math.round(y - gr), (int) Math.round(gr * 2), (int) Math.round(gr * 2), null);
+        int size = (int) Math.round(gr * 2 * t.getScaleX());
+        if (flat != null && size <= 1024) {
+            // In the size it has on the screen: a plain copy.
+            Composite plain = flat.getComposite();
+            flat.setComposite(g.getComposite());
+            flat.drawImage(halo(glow, size), (int) Math.round(t.getTranslateX() + t.getScaleX() * (x - gr)),
+                    (int) Math.round(t.getTranslateY() + t.getScaleY() * (y - gr)), null);
+            flat.setComposite(plain);
+        } else {
+            g.drawImage(halo(glow), (int) Math.round(x - gr), (int) Math.round(y - gr), (int) Math.round(gr * 2), (int) Math.round(gr * 2), null);
+        }
         g.setColor(disc);
         g.fill(new Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
         g.setComposite(before);
     }
 
-    /** Draws a wrapping picture slid by {@code shift}, its top at {@code y}, scaled by {@code k}, tinted for the light. */
-    private void wrap(Graphics2D g, BufferedImage im, double shift, double y, double k, double width, double light, double golden) {
-        wrap(g, im, shift, y, k, width, light, golden, 1);
-    }
-
-    private void wrap(Graphics2D g, BufferedImage im, double shift, double y, double k, double width, double light, double golden,
-                      double opacity) {
-        BufferedImage pic = tint(im, light, golden, opacity);
+    // --8<-- [start:wrap]
+    /**
+     * Draws a wrapping picture slid by {@code shift}, its top at {@code y}, scaled by {@code k}, tinted for
+     * the light: a copy of exactly the pixels it covers on the screen, laid side by side.
+     */
+    private void wrap(Graphics2D g, Graphics2D flat, AffineTransform t, BufferedImage im, double shift, double y, double k,
+                      double width, double light, double golden, double opacity) {
         double w = WIDTH * k;
         double h = im.getHeight() / (double) SCALE * k;
         double x = -(((shift * k) % w) + w) % w;
-        java.awt.geom.AffineTransform t = g.getTransform();
-        double sx = t.getScaleX(), sy = t.getScaleY();
-        if (t.getShearX() == 0 && t.getShearY() == 0 && Math.abs(sx * w - pic.getWidth()) < 1.5 && Math.abs(sy * h - pic.getHeight()) < 1.5) {
-            // The picture is already as large as it is drawn: a plain copy, much faster than a scaled one.
-            g.setTransform(new java.awt.geom.AffineTransform());
-            int dy = (int) Math.round(t.getTranslateY() + sy * y);
-            double end = t.getTranslateX() + sx * width;
-            for (double dx = t.getTranslateX() + sx * x; dx < end; dx += pic.getWidth()) g.drawImage(pic, (int) Math.round(dx), dy, null);
-            g.setTransform(t);
-            return;
-        }
-        for (; x < width; x += w) g.drawImage(pic, (int) Math.floor(x), (int) Math.floor(y), (int) Math.ceil(w) + 1, (int) Math.ceil(h), null);
-    }
-
-    // --8<-- [start:tint]
-    /** A copy darkened towards the night and warmed by the golden hour; made once for each step and kept. */
-    private BufferedImage tint(BufferedImage im, double light, double golden, double opacity) {
         int l = (int) Math.round(Math.max(0, Math.min(1, light)) * 15), gs = (int) Math.round(golden * 4);
         int o = (int) Math.round(Math.max(0, Math.min(1, opacity)) * 10);
-        if (l == 15 && gs == 0 && o == 10) return im;
-        String key = System.identityHashCode(im) + "/" + l + "/" + gs + "/" + o;
-        BufferedImage done = tinted.get(key);
-        if (done != null) return done;
-        BufferedImage out = tinted(im, l, gs, o);
-        tinted.put(key, out);
-        tintedPixels += (long) out.getWidth() * out.getHeight();
-        var oldest = tinted.values().iterator();
-        while (tintedPixels > TINT_BUDGET && oldest.hasNext()) {
-            BufferedImage gone = oldest.next();
-            if (gone == out) break;
-            tintedPixels -= (long) gone.getWidth() * gone.getHeight();
+        if (flat == null) {
+            // A turned or mirrored surface: the picture in its own size, enlarged while drawing.
+            BufferedImage pic = copy(new Copy(im, im.getWidth(), im.getHeight(), l, gs, o));
+            if (pic == null) return;
+            for (; x < width; x += w) g.drawImage(pic, (int) Math.floor(x), (int) Math.floor(y), (int) Math.ceil(w) + 1, (int) Math.ceil(h), null);
+            return;
+        }
+        double sx = t.getScaleX(), sy = t.getScaleY();
+        int dw = (int) Math.round(sx * w), dh = Math.max(1, (int) Math.round(sy * h));
+        double fit = Math.min(1, WIDEST_COPY / (double) dw);
+        Copy wanted = new Copy(im, Math.max(1, (int) Math.round(dw * fit)), Math.max(1, (int) Math.round(dh * fit)), l, gs, o);
+        BufferedImage pic = copy(wanted);
+        if (pic == null) return;
+        int dy = (int) Math.round(t.getTranslateY() + sy * y);
+        double end = t.getTranslateX() + sx * width;
+        boolean exact = pic.getWidth() == dw && pic.getHeight() == dh;
+        if (!exact) flat.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        for (double dx = t.getTranslateX() + sx * x; dx < end; dx += dw) {
+            if (exact) flat.drawImage(pic, (int) Math.round(dx), dy, null);
+            else flat.drawImage(pic, (int) Math.round(dx), dy, dw + 1, dh, null);
+        }
+    }
+    // --8<-- [end:wrap]
+
+    // --8<-- [start:tint]
+    /**
+     * The copy to draw now. If it has not been made yet, the maker's thread makes it, and until it is
+     * finished the layer is drawn with the copy it had before: a step of light too dark, or enlarged, for
+     * a few frames, instead of a frame that waits. {@code null} if the layer has never been drawn.
+     */
+    private BufferedImage copy(Copy wanted) {
+        if (wanted.plain()) return wanted.layer();
+        BufferedImage done = copies.get(wanted);
+        if (done == null && patient) {
+            done = make(wanted);
+            keep(wanted, done);
+        }
+        if (done != null) {
+            shown.put(wanted.layer(), wanted);
+            return done;
+        }
+        if (pending.add(wanted)) MAKER.execute(() -> made.add(Map.entry(wanted, make(wanted))));
+        Copy before = shown.get(wanted.layer());
+        return before == null ? null : before.plain() ? before.layer() : copies.get(before);
+    }
+
+    private void keep(Copy copy, BufferedImage picture) {
+        if (copies.put(copy, picture) != null) return;
+        copyPixels += (long) picture.getWidth() * picture.getHeight();
+        var oldest = copies.entrySet().iterator();
+        while (copyPixels > COPY_BUDGET && oldest.hasNext()) {
+            var gone = oldest.next();
+            if (gone.getValue() == picture) break;
+            copyPixels -= (long) gone.getValue().getWidth() * gone.getValue().getHeight();
             oldest.remove();
         }
-        return out;
+    }
+
+    /** A layer in the size of the screen, darkened towards the night and warmed by the golden hour. */
+    private static BufferedImage make(Copy c) {
+        BufferedImage sized = c.layer();
+        if (sized.getWidth() != c.width() || sized.getHeight() != c.height()) {
+            sized = new BufferedImage(c.width(), c.height(), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = sized.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(c.layer(), 0, 0, c.width(), c.height(), null);
+            g.dispose();
+        }
+        if (c.light() == 15 && c.golden() == 0 && c.opacity() == 10) return sized;
+        return tinted(sized, c.light(), c.golden(), c.opacity());
     }
 
     private static BufferedImage tinted(BufferedImage im, int l, int gs, int o) {

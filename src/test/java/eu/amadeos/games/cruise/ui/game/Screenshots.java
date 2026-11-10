@@ -3,6 +3,8 @@ package eu.amadeos.games.cruise.ui.game;
 import eu.amadeos.commons.config.XdgDirectories;
 import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.gameengine.audio.Mixer;
+import eu.amadeos.gameengine.drive.Road;
+import eu.amadeos.gameengine.drive.Segment;
 import eu.amadeos.gameengine.input.Gamepads;
 import eu.amadeos.gameengine.input.Keyboard;
 import eu.amadeos.gameengine.scene.Scene;
@@ -28,7 +30,7 @@ import java.util.Map;
 
 /**
  * The screenshots of chapter 61 and of the README, drawn without a screen: the title, each region, the
- * garage, the race setup, a race of two, the journal. {@code ./gradlew screenshots -Pshots=<folder>}.
+ * garage, the race setup, a race of two, the journal, and two gorges. {@code ./gradlew screenshots -Pshots=<folder>}.
  */
 public final class Screenshots {
     static final double STEP = 1.0 / 60;
@@ -83,6 +85,27 @@ public final class Screenshots {
             game.push(scene);
             shots.seconds(2);
             shots.save(new File(dir, d[5] + ".png"));
+        }
+
+        // between the cliffs of the canyon and of the pass: the car drives on until it is in a gorge
+        Object[][] gorges = {{Region.EMBER_CANYON, 15.0, 2, "ember-gorge"}, {Region.HIGH_PASS, 15.0, 3, "high-pass-gorge"}};
+        for (Object[] d : gorges) {
+            Trip trip = Trip.journey(29, game.art(), game.art(), (Region) d[0], CarModel.ROADSTER, 2, (double) d[1]);
+            trip.clock.setRunning(false);
+            trip.weather.set(Weather.Kind.CLEAR);
+            trip.setAutopilot(0, true);
+            for (int found = 0, wait = 0, i = 0; found < (int) d[2] && i < 60 * 600; i++, wait--) {
+                trip.step(STEP, List.of(Input.NONE));
+                long at = (long) (trip.lead().car.z / Road.SEGMENT);
+                Segment ahead = trip.world.road().segment(at + 25), beside = trip.world.road().segment(at + 4);
+                if (wait < 0 && ahead.left != null && ahead.right != null && !ahead.tunnel && beside.left != null && !beside.tunnel) {
+                    found++;
+                    wait = 60 * 6;
+                }
+            }
+            game.push(game.new JourneyScene(trip));
+            shots.seconds(0.3);
+            shots.save(new File(dir, d[3] + ".png"));
         }
 
         game.push(game.new GarageScene(game.new TitleScene()));

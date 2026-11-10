@@ -32,7 +32,7 @@ dependencies {
     // mixer with its beds and streamed music, tunes, high scores and the standard game menu; brings
     // amade-commons (theme, Motif look, start-up, XDG).
     // With ../amade-game-engine checked out, settings.gradle builds that checkout instead (composite build).
-    implementation 'com.github.amadeos-eu:amade-game-engine:aeef609d50'
+    implementation 'com.github.amadeos-eu:amade-game-engine:4ae24e454f'
 
     // The player's own music: decoders that Java Sound finds as service providers (MP3, Ogg Vorbis, FLAC;
     // WAV and AIFF Java reads itself), the same set as amade-audio, so the game needs no music player.

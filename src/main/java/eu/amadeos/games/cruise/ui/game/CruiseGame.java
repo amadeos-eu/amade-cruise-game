@@ -5,6 +5,7 @@ import eu.amadeos.commons.config.XdgDirectories;
 import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.gameengine.audio.Mixer;
 import eu.amadeos.gameengine.drive.Car;
+import eu.amadeos.gameengine.drive.Road;
 import eu.amadeos.gameengine.input.Controls;
 import eu.amadeos.gameengine.input.Gamepad;
 import eu.amadeos.gameengine.input.Gamepads;
@@ -643,6 +644,15 @@ public final class CruiseGame implements Arena {
             Font fs = Hud.font(Font.PLAIN, 10);
             double qw = Hud.width(g, fs, passed) + 22;
             Hud.pill(g, passed, fs, w - qw - 14, HEIGHT - 32, 1);
+            // where the car is and how far the region still goes: the road forks at its end
+            World.Fork next = trip.world.forkAhead(d.car.z);
+            if (next != null) {
+                double left = Math.max(0, next.segment() - d.car.z / Road.SEGMENT) / 1000;
+                String way = msg.format("hud.way", msg.get("region." + trip.world.regionAt(d.car.z).id()),
+                        String.format(Locale.ROOT, "%.1f", left));
+                Font fw = Hud.font(Font.PLAIN, 9.5);
+                Hud.pill(g, way, fw, w - Hud.width(g, fw, way) - 22 - 14, 38, 0.8);
+            }
             World.Fork fork = trip.world.forkAhead(d.car.z, 450);
             if (fork != null) {
                 String hint = msg.format("hud.fork", msg.get("region." + fork.left().id()), msg.get("region." + fork.right().id()));

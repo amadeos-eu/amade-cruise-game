@@ -1,5 +1,6 @@
 package eu.amadeos.games.cruise.domain;
 
+import eu.amadeos.gameengine.drive.Noise;
 import eu.amadeos.gameengine.drive.Road;
 import eu.amadeos.gameengine.drive.RoadLook;
 import eu.amadeos.gameengine.drive.RoadSprite;
@@ -238,8 +239,9 @@ public final class World {
         stint.forkAt = stint.end - FORK_BEFORE;
     }
 
+    /** Four to six and a half kilometres: two to four minutes in a region, long enough to settle, not to tire. */
     private static long stintLength(Random r) {
-        return 5000 + r.nextInt(3000);
+        return 4000 + r.nextInt(2500);
     }
 
     // ---- what the game asks -------------------------------------------------------------------------
@@ -265,6 +267,11 @@ public final class World {
         Stint s = stintAt((long) Math.floor(z / Road.SEGMENT));
         if (s.previous == null) return 1;
         return Math.max(0, Math.min(1, (z / Road.SEGMENT - s.start) / TRANSITION));
+    }
+
+    /** The next fork not yet passed, however far, or {@code null} in a race and between a fork and the next region. */
+    public Fork forkAhead(double z) {
+        return forkAhead(z, Long.MAX_VALUE / 4);
     }
 
     /** The next fork not yet passed within {@code within} segments of {@code z}, or {@code null}. */
@@ -338,6 +345,8 @@ public final class World {
                 rise *= 0.2;
                 count = Math.max(count, 90);
             }
+            // a gorge is long: a cliff that ends after a hundred metres is a wall, not a canyon
+            if (feature == Feature.CLIFFS) count = count * 2 + 40;
             if (nearFork || nearFinish) curve *= 0.3;
             if (Math.abs(curve) > 3.3) curveSign(curve);
             add((int) Math.min(count, room), curve, rise, feature, r.nextInt(1 << 20));
@@ -356,12 +365,13 @@ public final class World {
             long first = road.end();
             double y0 = first == 0 ? 0 : road.segment(first - 1).y;
             int tunnelIn = feature == Feature.TUNNEL ? 20 : 0;
+            Wall[] cliffs = cliffs(feature, first, count, featureSeed);
             for (int i = 0; i < count; i++) {
                 double t = (i + 1.0) / count;
                 long index = first + i;
                 Segment s = road.add(look(index), curve * Math.sin(Math.PI * (i + 0.5) / count),
                         y0 + rise * (0.5 - 0.5 * Math.cos(Math.PI * t)));
-                dress(s, feature, i, count, tunnelIn, featureSeed);
+                dress(s, feature, i, count, tunnelIn, featureSeed, cliffs);
                 if (stint.forkAt == index) s.add(new Scenery(props.fork(stint.left, stint.right), 0, 0.5, false));
             }
         }
@@ -381,8 +391,30 @@ public final class World {
             return r.nextDouble() < t ? region : stint.previous;
         }
 
+        // --8<-- [start:cliffs]
+        /**
+         * The cliffs of a section, left and right, each one wall for the whole section: it rises out of the
+         * ground at the section's ends, and its buttresses and niches follow from its seed. One gorge in
+         * three has rock on one side only and the open land on the other.
+         */
+        private Wall[] cliffs(Feature feature, long first, int count, int featureSeed) {
+            Color[] strata = region.strata() != null ? region.strata()
+                    : new Color[]{new Color(120, 118, 116), new Color(140, 138, 132), new Color(104, 102, 100)};
+            if (feature == Feature.TUNNEL) {
+                // the mountain the tunnel goes into: it rises towards the mouth and does not sink again
+                return new Wall[]{Wall.cliff(2.4, 5200, featureSeed, strata).between(first, Long.MAX_VALUE),
+                        Wall.cliff(2.4, 5200, featureSeed + 1, strata).between(first, Long.MAX_VALUE)};
+            }
+            if (feature != Feature.CLIFFS) return null;
+            double sides = Noise.hash(featureSeed, 3);
+            long from = first + 2, to = first + count - 2;
+            return new Wall[]{sides > 0.83 ? null : Wall.cliff(2.1, 5200, featureSeed, strata).between(from, to),
+                    sides < 0.17 ? null : Wall.cliff(2.2, 5000, featureSeed + 1, strata).between(from, to)};
+        }
+        // --8<-- [end:cliffs]
+
         // --8<-- [start:dress]
-        private void dress(Segment s, Feature feature, int i, int count, int tunnelIn, int featureSeed) {
+        private void dress(Segment s, Feature feature, int i, int count, int tunnelIn, int featureSeed, Wall[] cliffs) {
             long index = s.index();
             Region here = propRegion(index);
             if (here.coast() && region.coast()) s.waterLeft = 3.0 + 1.2 * Math.sin(index * 0.013) + 0.4 * Math.sin(index * 0.05);
@@ -391,8 +423,8 @@ public final class World {
                     Color[] strata = region.strata() != null ? region.strata()
                             : new Color[]{new Color(120, 118, 116), new Color(140, 138, 132), new Color(104, 102, 100)};
                     if (i < tunnelIn) {
-                        s.left = Wall.cliff(2.4, 5200, featureSeed, strata);
-                        s.right = Wall.cliff(2.4, 5200, featureSeed + 1, strata);
+                        s.left = cliffs[0];
+                        s.right = cliffs[1];
                     } else if (i < count - 4) {
                         s.tunnel = true;
                         s.left = Wall.tunnel(1.35, 1500);
@@ -402,9 +434,9 @@ public final class World {
                     }
                 }
                 case CLIFFS -> {
-                    if (i > 2 && i < count - 2) {
-                        s.left = Wall.cliff(2.3 + 0.3 * Math.sin(index * 0.03), 5000, featureSeed, region.strata());
-                        s.right = Wall.cliff(2.5 + 0.3 * Math.sin(index * 0.021 + 1), 4800, featureSeed + 1, region.strata());
+                    if (i >= 2 && i < count - 2) {
+                        s.left = cliffs[0];
+                        s.right = cliffs[1];
                     }
                 }
                 case HOUSES -> {
@@ -459,7 +491,9 @@ public final class World {
             double water = side < 0 ? s.waterLeft : s.waterRight;
             if (water > 0 && offset > water - 0.4) return;
             var wall = side < 0 ? s.left : s.right;
-            if (wall != null && offset > wall.offset() - 0.35) return;
+            // before a cliff's scree, and into its niches
+            if (wall != null && offset > Math.min(wall.offsetAt(s.index()), wall.offsetAt(s.index() + 1))
+                    - (wall.kind() == Wall.Kind.CLIFF ? 0.95 : 0.35)) return;
             s.add(new Scenery(props.prop(p.kind(), r.nextInt(8)), side * offset, r.nextDouble(),
                     r.nextBoolean() && p.kind() != PropKind.NEON_SIGN));
         }

@@ -9,7 +9,7 @@
 
 ## The journey
 
-An endless journey with no goal and no clock: drive, look and overtake. The road leads from one region to the next; at a fork the player chooses which way.
+An endless journey with no goal and no clock: drive, look and overtake. The road leads from one region to the next: every four to six kilometres it forks, and the lane the car keeps to under the sign chooses which way. A small display under the clock names the region and the kilometres to the fork. In the canyon and on the pass the road runs through gorges, between rock with buttresses and niches, sometimes with the open land on one side.
 
 - **Larch Valley**: larches, a river and the mountains beyond.
 - **Amber Plains**: sunflowers, poplars, windmills and hay.

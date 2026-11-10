@@ -43,7 +43,7 @@ On the road are trucks, buses, campers, tractors and the small cars *Tenda*, *Bu
 - **Up** is the gas, **down** the brake, **left** and **right** steer. The second player drives with **W**, **A**, **S** and **D**.
 - **Space** (the second player **E**) is the horn, **C** lets the car drive itself, **Esc** pauses.
 - **Ctrl+R** switches the music off and on, **R** changes the station (the game's own tunes or the playlist), **N** plays the next track.
-- **F11** switches to full screen and back. *Game → Graphics* chooses how the picture reaches the screen: **Direct** or **Pixels** (640 × 400, enlarged by whole factors; faster on slow machines). **F12** shows how long each frame takes.
+- **F11** switches to full screen and back. *Game → Graphics* chooses how the picture reaches the screen: **Automatic** (as sharp as the screen while the computer keeps up, at half or a third of the sharpness when it does not; the game measures its frames and chooses), **Direct** (always as sharp as the screen) or **Pixels** (640 × 400, enlarged by whole factors). **F12** shows how long each frame takes, and in *Automatic* the step the game has chosen.
 - Gamepads: the stick steers, **A** or **RB** is the gas, **B**, **X** or **LB** the brake, **Y** takes a photo, **Back** plays the next track, **Start** pauses. In the race, the first pad drives for the first player and the second for the second.
 
 *Game → Settings* has the music and its loudness, the loudness of the car and of the landscape, the playlist, the time of day, the weather and how busy the roads are.
@@ -91,7 +91,7 @@ Plugged in before or while the game runs. *Help → About* shows how many are co
 ./gradlew run
 ./gradlew deb           # build/distributions/amade-cruise-game_<version>_all.deb
 ./gradlew installToAmadeOs   # copies the package to ../amadeos/config/packages.chroot/
-./gradlew benchmark     # how long a frame of each region takes
+./gradlew benchmark     # how long a frame of each region takes; -Pscale=3 for a full screen of 1920 x 1200
 ```
 
 Gamepads on Windows go through Java's foreign function interface (the modules through JNA), so the game starts with `--enable-native-access=ALL-UNNAMED` (set in `build.gradle` for `run`, the tests and the packages).

@@ -94,8 +94,8 @@ class CruiseWindowTest {
     @Test
     void theSavedRenderModeIsUsedAndTheMenuChangesIt() throws Exception {
         onEdt(() -> {
-            assertEquals(RenderMode.DIRECT, window.canvas().renderMode());
-            assertTrue(item("game-graphics-direct").isSelected());
+            assertEquals(RenderMode.AUTO, window.canvas().renderMode());
+            assertTrue(item("game-graphics-auto").isSelected());
             JMenuItem pixel = item("game-graphics-pixel");
             assertNotNull(pixel);
             pixel.doClick(0);

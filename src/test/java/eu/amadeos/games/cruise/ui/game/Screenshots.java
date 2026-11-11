@@ -5,6 +5,7 @@ import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.gameengine.audio.Mixer;
 import eu.amadeos.gameengine.drive.Road;
 import eu.amadeos.gameengine.drive.Segment;
+import eu.amadeos.gameengine.drive.Wall;
 import eu.amadeos.gameengine.input.Gamepads;
 import eu.amadeos.gameengine.input.Keyboard;
 import eu.amadeos.gameengine.scene.Scene;
@@ -76,11 +77,24 @@ public final class Screenshots {
         long seed = 11;
         for (Object[] d : drives) {
             Region region = (Region) d[0];
-            Trip trip = Trip.journey(seed += 13, game.art(), game.art(), region, (CarModel) d[1], (int) d[2], (double) d[3]);
-            trip.clock.setRunning(false);
-            trip.weather.set((Weather.Kind) d[4]);
-            trip.setAutopilot(0, true);
-            for (int i = 0; i < 60 * 30; i++) trip.step(STEP, List.of(Input.NONE));
+            seed += 13;
+            // the canyon is shown with a tunnel ahead and every other region away from rock and tunnels: the car
+            // drives on until then, and where the region ends first, another journey is tried
+            Trip trip = null;
+            for (int attempt = 0; trip == null && attempt < 40; attempt++) {
+                Trip t = Trip.journey(seed + attempt * 101L, game.art(), game.art(), region, (CarModel) d[1], (int) d[2], (double) d[3]);
+                t.clock.setRunning(false);
+                t.weather.set((Weather.Kind) d[4]);
+                t.setAutopilot(0, true);
+                for (int i = 0; i < 60 * 30; i++) t.step(STEP, List.of(Input.NONE));
+                boolean there = false;
+                for (int i = 0; i < 60 * 240 && t.world.regionAt(t.lead().car.z + 60_000) == region
+                        && !(there = region == Region.EMBER_CANYON ? beforeATunnel(t) : inTheOpen(t)); i++) {
+                    t.step(STEP, List.of(Input.NONE));
+                }
+                if (there) trip = t;
+            }
+            if (trip == null) throw new IllegalStateException("no place for a picture of " + region);
             CruiseGame.JourneyScene scene = game.new JourneyScene(trip);
             game.push(scene);
             shots.seconds(2);
@@ -133,6 +147,31 @@ public final class Screenshots {
         shots.press(KeyEvent.VK_J);
         shots.save(new File(dir, "journal.png"));
         System.exit(0);
+    }
+
+    /** No rock beside the car and none for a good way ahead, and no tunnel in sight. */
+    static boolean inTheOpen(Trip trip) {
+        long at = (long) (trip.lead().car.z / Road.SEGMENT);
+        for (int i = 0; i < 200; i++) {
+            Segment s = trip.world.road().segment(at + i);
+            if (s.tunnel || (i < 90 && (cliff(s.left) || cliff(s.right)))) return false;
+        }
+        return true;
+    }
+
+    private static boolean cliff(Wall wall) {
+        return wall != null && wall.kind() == Wall.Kind.CLIFF;
+    }
+
+    /** The mouth of a tunnel a good way ahead, and open land up to the mountain it goes into. */
+    static boolean beforeATunnel(Trip trip) {
+        long at = (long) (trip.lead().car.z / Road.SEGMENT);
+        for (int i = 0; i < 60; i++) {
+            Segment s = trip.world.road().segment(at + i);
+            if (s.tunnel || s.left != null || s.right != null) return false;
+        }
+        for (int i = 60; i < 130; i++) if (trip.world.road().segment(at + i).tunnel) return true;
+        return false;
     }
 
     void seconds(double seconds) {

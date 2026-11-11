@@ -76,6 +76,6 @@ public enum CarModel {
 
     public static CarModel ofId(String id) {
         for (CarModel m : values()) if (m.id().equals(id)) return m;
-        return ROADSTER;
+        return KESTREL;
     }
 }

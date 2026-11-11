@@ -42,7 +42,7 @@ public final class Screenshots {
         Path dir = Files.createTempDirectory("cruise");
         Messages msg = Messages.load(CruiseModule.class, CruiseModule.MESSAGES, locale);
         CruiseSettings settings = new CruiseSettings(dir.resolve("cruise.properties"));
-        settings.setCar(1, CarModel.KESTREL);
+        settings.setCar(1, CarModel.ROADSTER);
         settings.setColour(1, 1);
         Mixer mixer = new Mixer();
         mixer.setMuted(true);

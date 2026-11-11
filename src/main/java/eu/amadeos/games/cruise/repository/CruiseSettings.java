@@ -191,9 +191,9 @@ public final class CruiseSettings {
         set("shuffle", on ? "on" : "off");
     }
 
-    /** The car of player 1 or 2. */
+    /** The car of player 1 or 2: the sports coupé until one is chosen, and the roadster for the second player. */
     public CarModel car(int player) {
-        return CarModel.ofId(get(player == 0 ? "car" : "car2", player == 0 ? "roadster" : "kestrel"));
+        return CarModel.ofId(get(player == 0 ? "car" : "car2", (player == 0 ? CarModel.KESTREL : CarModel.ROADSTER).id()));
     }
 
     public void setCar(int player, CarModel model) {

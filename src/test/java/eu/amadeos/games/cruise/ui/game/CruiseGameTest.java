@@ -57,6 +57,16 @@ class CruiseGameTest {
         }
     }
 
+    /** The highest speed of the first car in the next {@code s} seconds: a tractor ahead may slow it down at the end. */
+    private double fastest(double s) {
+        double best = 0;
+        for (double t = 0; t < s; t += 0.25) {
+            seconds(0.25);
+            best = Math.max(best, ((CruiseGame.JourneyScene) game.top()).trip().lead().kmh());
+        }
+        return best;
+    }
+
     private void press(int key) {
         keyboard.pressed(key, now[0]);
         seconds(STEP * 2);
@@ -80,10 +90,9 @@ class CruiseGameTest {
         press(KeyEvent.VK_ENTER);
         assertInstanceOf(CruiseGame.JourneyScene.class, game.top());
         keyboard.pressed(KeyEvent.VK_UP, now[0]);
-        seconds(5);
+        double kmh = fastest(5);
         keyboard.released(KeyEvent.VK_UP, now[0]);
-        CruiseGame.JourneyScene journey = (CruiseGame.JourneyScene) game.top();
-        assertTrue(journey.trip().lead().kmh() > 60, "the arrow up drives: " + journey.trip().lead().kmh());
+        assertTrue(kmh > 60, "the arrow up drives: " + kmh);
         assertTrue(game.journal().km() > 0.05);
         draw();
         press(KeyEvent.VK_ESCAPE);
@@ -102,10 +111,11 @@ class CruiseGameTest {
         press(KeyEvent.VK_DOWN);
         press(KeyEvent.VK_ENTER);
         assertInstanceOf(CruiseGame.GarageScene.class, game.top());
+        assertEquals(CarModel.KESTREL, settings.car(0), "the sports coupé until another car is chosen");
         press(KeyEvent.VK_RIGHT);
         press(KeyEvent.VK_DOWN);
         draw();
-        assertEquals("kestrel", settings.car(0).id());
+        assertEquals("wanderer", settings.car(0).id());
         assertEquals(1, settings.colour(0));
         press(KeyEvent.VK_TAB);
         CarModel second = settings.car(1);
@@ -155,10 +165,10 @@ class CruiseGameTest {
     void theAutopilotDrivesAndAPhotoIsSaved() throws Exception {
         press(KeyEvent.VK_ENTER);
         press(KeyEvent.VK_C);
-        seconds(6);
+        double kmh = fastest(6);
         CruiseGame.JourneyScene journey = (CruiseGame.JourneyScene) game.top();
         assertTrue(journey.trip().autopilot(0));
-        assertTrue(journey.trip().lead().kmh() > 20, "kmh " + journey.trip().lead().kmh());
+        assertTrue(kmh > 20, "kmh " + kmh);
         press(KeyEvent.VK_P);
         Path pictures = dir.resolve("Pictures/Cruise");
         for (int i = 0; i < 100 && !(Files.isDirectory(pictures) && Files.list(pictures).findAny().isPresent()); i++) Thread.sleep(50);

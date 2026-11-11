@@ -1,15 +1,21 @@
 package eu.amadeos.games.cruise.domain;
 
 import eu.amadeos.gameengine.drive.Road;
+import eu.amadeos.gameengine.drive.Scenery;
+import eu.amadeos.gameengine.drive.Segment;
+import eu.amadeos.gameengine.drive.Wall;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorldTest {
@@ -71,5 +77,53 @@ class WorldTest {
         assertEquals(World.START + route.length, w.finish());
         List<Region> met = drive(w, 0.5, World.START + route.length + 200);
         assertEquals(route.regions, met);
+    }
+
+    // --8<-- [start:test-gorge]
+    @Test
+    void aGorgeIsOneLongCliffThatRisesFromTheGroundAndNothingStandsInsideTheRock() {
+        World w = World.journey(9, Stubs.ONE, Region.EMBER_CANYON);
+        Map<Wall, long[]> gorges = new HashMap<>();
+        int oneSided = 0;
+        long end = w.forkAhead(World.START * Road.SEGMENT).segment();
+        for (long i = World.START; i < end; i++) {
+            w.update(i * Road.SEGMENT, 0.5);
+            Segment s = w.road().segment(i + 100);
+            if (s.tunnel) continue;
+            for (Wall wall : new Wall[]{s.left, s.right}) {
+                if (wall == null || wall.to() == Long.MAX_VALUE) continue;
+                long[] span = gorges.computeIfAbsent(wall, k -> new long[]{s.index(), s.index()});
+                span[1] = s.index();
+                boolean left = wall == s.left;
+                for (Scenery thing : s.scenery) {
+                    if (thing.offset() == 0 || thing.offset() < 0 != left) continue;
+                    assertTrue(Math.abs(thing.offset()) < wall.offsetAt(s.index()), "in the rock at " + s.index());
+                }
+            }
+            if (s.left == null ^ s.right == null) oneSided++;
+        }
+        assertTrue(gorges.size() >= 4, "gorges in a canyon: " + gorges.size());
+        for (Map.Entry<Wall, long[]> e : gorges.entrySet()) {
+            Wall wall = e.getKey();
+            assertEquals(wall.from(), e.getValue()[0], "one wall from the first segment");
+            assertEquals(wall.to() - 1, e.getValue()[1], "to the last");
+            assertTrue(wall.to() - wall.from() >= 100, "long: " + (wall.to() - wall.from()));
+            assertEquals(0, wall.heightAt(wall.from()), 1e-9, "it rises out of the ground");
+        }
+        assertTrue(oneSided > 100, "some gorges have rock on one side only: " + oneSided);
+    }
+    // --8<-- [end:test-gorge]
+
+    @Test
+    void aRegionLastsFourToSixAndAHalfKilometresAndTheWayToItsForkIsKnownFromTheStart() {
+        for (long seed = 1; seed < 30; seed++) {
+            World w = World.journey(seed, Stubs.ONE, Region.LARCH_VALLEY);
+            World.Fork fork = w.forkAhead(World.START * Road.SEGMENT);
+            assertNotNull(fork);
+            long length = fork.segment() + World.FORK_BEFORE;
+            assertTrue(length >= 4000 && length < 6500, "seed " + seed + ": " + length);
+        }
+        Race.Route route = Race.Route.COAST_RUN;
+        assertNull(World.race(route.seed(), Stubs.ONE, route.regions, route.length).forkAhead(0), "a race has no forks");
     }
 }

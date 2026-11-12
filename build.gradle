@@ -53,6 +53,9 @@ dependencies {
 test {
     useJUnitPlatform()
     jvmArgs '--enable-native-access=ALL-UNNAMED'
+    // The landscape keeps about 500 MB once built; Gradle's default of 512 MB for tests left no room
+    // and ran out of memory now and then. The same cap as the launcher's.
+    maxHeapSize = '1536m'
     // Tests compare English texts, whatever the language of the build machine.
     systemProperty 'user.language', 'en'
     systemProperty 'user.country', 'US'
@@ -143,8 +146,12 @@ tasks.register('deb') {
         }
 
         def launcher = new File(binDir, 'amade-cruise-game')
+        // The options all amadeOS programs share (heap, garbage collector) come first from the argument file
+        // amadeos-session installs; the options after it win over them.
         launcher.text = """#!/bin/sh
-exec /usr/bin/java -jar /opt/amade-cruise-game/amade-cruise-game.jar "\$@"
+OPTIONS=/etc/amadeos/java/game.options
+[ -r "\$OPTIONS" ] || OPTIONS=/dev/null
+exec /usr/bin/java "@\$OPTIONS" -Xmx1536m -jar /opt/amade-cruise-game/amade-cruise-game.jar "\$@"
 """
         launcher.setExecutable(true, false)
 

@@ -19,6 +19,13 @@ class CruiseSettingsTest {
     Path dir;
 
     @Test
+    void theFirstCarIsTheSportsCoupeAndTheSecondPlayersTheRoadster() {
+        CruiseSettings s = new CruiseSettings(dir.resolve("cruise.properties"));
+        assertEquals(CarModel.KESTREL, s.car(0));
+        assertEquals(CarModel.ROADSTER, s.car(1));
+    }
+
+    @Test
     void everySettingSurvivesARestart() {
         Path file = dir.resolve("cruise.properties");
         CruiseSettings s = new CruiseSettings(file);

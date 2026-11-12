@@ -30,7 +30,7 @@ Four routes (Coast Run, Canyon Sprint, Night Loop and Valley Tour) against five 
 
 ## The cars
 
-In the garage each player chooses a car and its colour:
+In the garage each player chooses a car and its colour. Until then the first player drives the Kestrel and the second the Roadster:
 
 - **Roadster**: open top, the wind, the birds and the sun.
 - **Kestrel**: a sports coupé, quick, low and a little nervous.

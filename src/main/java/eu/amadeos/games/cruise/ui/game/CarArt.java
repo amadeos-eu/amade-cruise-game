@@ -74,7 +74,9 @@ final class CarArt {
             case TRUCK -> h = 520;
             case CAMPER -> h = 400;
             case BUS -> h = 420;
-            default -> h = 250;
+            // everything is measured up from the ground: the picture must be as high as the highest part
+            case CONVERTIBLE -> h = 300;
+            default -> h = 262;
         }
         BufferedImage im = img(w, h);
         Graphics2D g = gfx(im);
@@ -117,22 +119,24 @@ final class CarArt {
                 g.setColor(rgb(60, 60, 64));
                 g.fill(new Ellipse2D.Double(bx + bw - 110, bottom - 46, 22, 12));
                 if (type == CarType.CONVERTIBLE) {
-                    // cockpit: seat backs, heads, roll hoops, windscreen frame
+                    // cockpit, from the far end to the near one: the windscreen, the two heads before it,
+                    // the seat backs before their shoulders. The heads end below the frame's upper edge.
                     g.setColor(rgb(36, 28, 26));
                     g.fill(new RoundRectangle2D.Double(bx + 56, beltY - 70, bw - 112, 48, 20, 20));
-                    head(g, cx - 62, beltY - 92, 26, rgb(120, 70, 40), false);
-                    head(g, cx + 62, beltY - 94, 25, rgb(40, 30, 28), true);
+                    Path2D screen = poly(bx + 70, beltY - 66, bx + bw - 70, beltY - 66, bx + bw - 88, beltY - 134, bx + 88, beltY - 134);
+                    g.setColor(new Color(200, 225, 240, 70));
+                    g.fill(screen);
+                    g.setColor(rgb(190, 195, 205));
+                    g.setStroke(new BasicStroke(4f));
+                    g.draw(screen);
+                    head(g, cx - 62, beltY - 88, 26, rgb(120, 70, 40), false);
+                    head(g, cx + 62, beltY - 90, 25, rgb(40, 30, 28), true);
                     g.setColor(rgb(150, 105, 70));
                     g.fill(new RoundRectangle2D.Double(cx - 108, beltY - 64, 92, 46, 18, 18));
                     g.fill(new RoundRectangle2D.Double(cx + 16, beltY - 64, 92, 46, 18, 18));
                     g.setColor(rgb(110, 75, 50));
                     g.fill(new RoundRectangle2D.Double(cx - 108, beltY - 30, 92, 8, 4, 4));
                     g.fill(new RoundRectangle2D.Double(cx + 16, beltY - 30, 92, 8, 4, 4));
-                    g.setColor(new Color(200, 225, 240, 70));
-                    g.fill(poly(bx + 70, beltY - 66, bx + bw - 70, beltY - 66, bx + bw - 86, beltY - 112, bx + 86, beltY - 112));
-                    g.setColor(rgb(190, 195, 205));
-                    g.setStroke(new BasicStroke(4f));
-                    g.draw(poly(bx + 70, beltY - 66, bx + bw - 70, beltY - 66, bx + bw - 86, beltY - 112, bx + 86, beltY - 112));
                 } else {
                     // cabin with rear window
                     double rt = type == CarType.COUPE ? beltY - 76 : beltY - 92;
@@ -256,7 +260,7 @@ final class CarArt {
     }
 
     static RoadSprite carFront(Color body, boolean lightsOn, double worldW) {
-        int w = 440, h = 250;
+        int w = 440, h = 262;
         BufferedImage im = img(w, h);
         Graphics2D g = gfx(im);
         double cx = w / 2.0, bottom = h - 6, bw = w * 0.9, bx = cx - bw / 2, beltY = bottom - 140;
@@ -579,7 +583,12 @@ final class CarArt {
                 // cockpit: seats, driver, windscreen
                 g.setColor(rgb(150, 105, 70)); g.fill(new RoundRectangle2D.Double(196, 112, 30, 50, 14, 14));
                 g.fill(new RoundRectangle2D.Double(250, 116, 28, 46, 14, 14));
+                // mirrored, so that the scarf flies backwards
+                AffineTransform upright = g.getTransform();
+                g.translate(2 * 268, 0);
+                g.scale(-1, 1);
                 head(g, 268, 112, 15, rgb(120, 70, 40), true);
+                g.setTransform(upright);
                 paintBody(g, body, c, 148, 236, 176);
                 g.setColor(rgb(36, 28, 26)); g.fill(new RoundRectangle2D.Double(186, 146, 132, 8, 6, 6));
                 g.setColor(new Color(200, 225, 240, 110)); g.fill(poly(318, 150, 336, 150, 312, 108, 300, 108));
